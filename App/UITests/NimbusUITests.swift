@@ -10,7 +10,7 @@ final class NimbusUITests: XCTestCase {
     @MainActor
     func testDemoTour() throws {
         let app = XCUIApplication()
-        // Asks the app to use sample data when live data is unavailable.
+        // Forces sample data so the demo is identical and runs offline.
         app.launchArguments += ["-NimbusSampleData"]
         app.launch()
 
