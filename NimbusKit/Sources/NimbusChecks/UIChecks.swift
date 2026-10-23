@@ -394,8 +394,10 @@ public enum UIChecks {
 
     private static func snapshotChecks(_ c: inout Checker) async {
         let size = CGSize(width: 390, height: 844)
-        func screen(_ vm: WeatherViewModel, _ settings: SettingsModel, _ now: Date) -> WeatherScreen {
-            WeatherScreen(viewModel: vm, settings: settings, now: { now })
+        // Loaded screens are taller than a device and ImageRenderer cannot scroll, so render them tall and unscrolled.
+        let tallSize = CGSize(width: 390, height: 1700)
+        func screen(_ vm: WeatherViewModel, _ settings: SettingsModel, _ now: Date) -> some View {
+            WeatherScreen(viewModel: vm, settings: settings, now: { now }).environment(\.isSnapshot, true)
         }
 
         let okRepo = FakeForecastRepository(cached: [cupertino.id: .preview])
@@ -407,12 +409,12 @@ public enum UIChecks {
 
         let loaded = WeatherViewModel(place: cupertino, dependencies: okDeps)
         await loaded.load()
-        c.expect(Snapshot.render(screen(loaded, settings, refDate), name: "weather-loaded", size: size) != nil, "snapshot loaded")
+        c.expect(Snapshot.render(screen(loaded, settings, refDate), name: "weather-loaded", size: tallSize) != nil, "snapshot loaded")
 
         let offlineRepo = FakeForecastRepository(cached: [cupertino.id: staleForecast()], refreshResult: .failure(.offline))
         let offline = WeatherViewModel(place: cupertino, dependencies: dependencies(repository: offlineRepo))
         await offline.load()
-        c.expect(Snapshot.render(screen(offline, settings, refDate), name: "weather-offline", size: size) != nil, "snapshot stale offline")
+        c.expect(Snapshot.render(screen(offline, settings, refDate), name: "weather-offline", size: tallSize) != nil, "snapshot stale offline")
 
         let failRepo = FakeForecastRepository(refreshResult: .failure(.server(statusCode: 500)))
         let failed = WeatherViewModel(place: cupertino, dependencies: dependencies(repository: failRepo))

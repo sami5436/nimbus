@@ -4,8 +4,7 @@ import NimbusUI
 
 @main
 struct NimbusApp: App {
-    // STUB(feat/app-shell): replace with live wiring (Open-Meteo services, file stores, CoreLocation).
-    private let dependencies = AppDependencies.preview()
+    private let dependencies = AppDependencies.live()
 
     var body: some Scene {
         WindowGroup {

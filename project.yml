@@ -32,3 +32,14 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sami5436.nimbus
         TARGETED_DEVICE_FAMILY: "1"
+  NimbusTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: App/Tests
+    dependencies:
+      - target: Nimbus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sami5436.nimbus.tests
+        GENERATE_INFOPLIST_FILE: YES
