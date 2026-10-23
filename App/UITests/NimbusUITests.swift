@@ -71,4 +71,32 @@ final class NimbusUITests: XCTestCase {
             beat(3)
         }
     }
+
+    /// Tapping blank space in a search result row, away from its text, must still add and open the place.
+    @MainActor
+    func testAddPlaceFromSearchTapsWholeRow() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-NimbusSampleData"]
+        app.launch()
+        XCTAssertTrue(app.scrollViews.firstMatch.waitForExistence(timeout: 20))
+
+        app.buttons["Locations"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("Oslo")
+
+        // Sample data returns Cupertino (already saved) and Oslo (new), whatever the query.
+        let row = app.buttons.containing(.staticText, identifier: "Oslo").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)).tap()
+
+        // The sheet closes onto Oslo's page.
+        XCTAssertTrue(app.staticTexts["Oslo"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.searchFields.firstMatch.exists)
+
+        // And Oslo is in the saved list.
+        app.buttons["Locations"].tap()
+        XCTAssertTrue(app.buttons.containing(.staticText, identifier: "Oslo").firstMatch.waitForExistence(timeout: 5))
+    }
 }
