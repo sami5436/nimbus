@@ -43,6 +43,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sami5436.nimbus.uitests
         TEST_TARGET_NAME: Nimbus
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   Nimbus:
     build:

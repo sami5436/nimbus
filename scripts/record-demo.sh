@@ -19,19 +19,33 @@ xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --ba
 DEST="platform=iOS Simulator,id=$UDID"
 xcodebuild -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST" build-for-testing -quiet
 
-rm -f "$MP4"
-xcrun simctl io "$UDID" recordVideo --codec h264 --force "$MP4" &
+RAW=$(mktemp -t nimbus-demo).mp4
+READY=/tmp/nimbus-demo-ready
+rm -f "$RAW" "$READY"
+
+# The test drops $READY once the forecast is on screen; recording starts then, so launch time is skipped.
+xcodebuild -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST" \
+  test-without-building -only-testing:NimbusUITests/NimbusUITests/testDemoTour -quiet &
+TEST=$!
+while [ ! -e "$READY" ]; do
+  kill -0 "$TEST" 2>/dev/null || { wait "$TEST"; exit 1; }
+  sleep 0.2
+done
+xcrun simctl io "$UDID" recordVideo --codec h264 --force "$RAW" &
 REC=$!
 trap 'kill -INT $REC 2>/dev/null || true' EXIT
-sleep 2
 
-xcodebuild -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST" \
-  test-without-building -only-testing:NimbusUITests/NimbusUITests/testDemoTour -quiet
-
+TEST_STATUS=0
+wait "$TEST" || TEST_STATUS=$?
 sleep 1
 kill -INT "$REC"
 wait "$REC" || true
 trap - EXIT
+[ "$TEST_STATUS" -eq 0 ] || exit "$TEST_STATUS"
+
+# Shrink the raw capture to keep the committed MP4 small.
+ffmpeg -y -loglevel error -i "$RAW" -vf "scale=590:-2" -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart "$MP4"
+rm -f "$RAW"
 
 # Palette-based GIF, 15 fps, 400 px wide.
 ffmpeg -y -loglevel error -i "$MP4" \

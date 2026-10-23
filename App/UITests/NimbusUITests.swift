@@ -17,7 +17,9 @@ final class NimbusUITests: XCTestCase {
         // Forecast, then down through hourly, 10-day and tiles.
         let scroll = app.scrollViews.firstMatch
         XCTAssertTrue(scroll.waitForExistence(timeout: 20))
-        beat(3)
+        // Tells scripts/record-demo.sh to start recording, so the video skips launch time.
+        FileManager.default.createFile(atPath: "/tmp/nimbus-demo-ready", contents: nil)
+        beat(4)
         for _ in 0..<4 {
             scroll.swipeUp(velocity: .slow)
             beat()
