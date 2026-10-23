@@ -7,10 +7,16 @@ import NimbusCore
 final class LocationAuthorizer: NSObject, CLLocationManagerDelegate {
     static let shared = LocationAuthorizer()
 
-    private let manager = CLLocationManager()
+    private let manager: CLLocationManager
     private var waiters: [UUID: CheckedContinuation<CLAuthorizationStatus, Never>] = [:]
 
-    private override init() {
+    private override convenience init() {
+        self.init(manager: CLLocationManager())
+    }
+
+    /// Internal so tests can inject a manager whose status and prompt they control.
+    init(manager: CLLocationManager) {
+        self.manager = manager
         super.init()
         manager.delegate = self
     }
