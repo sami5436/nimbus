@@ -105,8 +105,11 @@ public struct LocationsScreen: View {
         case .results(let results):
             List(results) { place in
                 Button {
-                    onSelect(place)
-                    Task { await viewModel.add(place) }
+                    // Add first so the pager has the page, then select. add never waits on the network.
+                    Task {
+                        await viewModel.add(place)
+                        onSelect(place)
+                    }
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(place.name).font(.headline)

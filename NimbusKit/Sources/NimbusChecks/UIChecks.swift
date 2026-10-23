@@ -22,6 +22,11 @@ private actor CountingGeocoding: GeocodingService {
     }
 }
 
+@MainActor
+private final class Flag {
+    var value = false
+}
+
 /// Refreshes suspend until `release()`; nothing is cached. Lets checks prove nothing waits on the fetch.
 private actor GatedRepository: ForecastRepository {
     private var released = false
@@ -38,8 +43,14 @@ private actor GatedRepository: ForecastRepository {
         return .preview
     }
 
-    func waitUntilRequested() async {
-        while requested == 0 { await Task.yield() }
+    /// True once a refresh was requested, false after `timeout` so a regression fails instead of hanging.
+    func waitUntilRequested(timeout: Duration = .seconds(2)) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while requested == 0 {
+            if ContinuousClock.now >= deadline { return false }
+            await Task.yield()
+        }
+        return true
     }
 
     func release() {
@@ -276,13 +287,17 @@ public enum UIChecks {
         let gate = GatedRepository()
         let gatedVM = LocationsViewModel(dependencies: dependencies(repository: gate, places: [cupertino]))
         await gatedVM.load()
-        await gate.waitUntilRequested()
+        c.expect(await gate.waitUntilRequested(), "background fetch started")
         c.expect(gatedVM.hasLoaded, "load returned while the fetch is suspended")
         c.expect(gatedVM.summaries[cupertino.id] == nil, "card empty while fetch is suspended")
-        var selected: Place?
-        selected = oslo  // the screen selects first, then adds
-        await gatedVM.add(oslo)
-        c.expectEqual(selected, oslo, "selection happened while fetch was suspended")
+        let addDone = Flag()
+        Task {
+            await gatedVM.add(oslo)
+            addDone.value = true
+        }
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !addDone.value && ContinuousClock.now < deadline { await Task.yield() }
+        c.expect(addDone.value, "add returned while the fetch is suspended")
         c.expectEqual(gatedVM.places, [cupertino, oslo], "add returned while fetch is suspended")
         c.expect(gatedVM.summaries.isEmpty, "still no summaries before the fetch completes")
         await gate.release()

@@ -43,8 +43,7 @@ public final class LocationsViewModel {
     private let debounce: Duration
     private var searchTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
-    // Cancelled in deinit, which is nonisolated; Task is Sendable and only touched from the main actor.
-    @ObservationIgnored private nonisolated(unsafe) var fetchTask: Task<Void, Never>?
+    @ObservationIgnored private var fetchTask: Task<Void, Never>?
 
     public init(dependencies: AppDependencies, debounce: Duration = .milliseconds(300)) {
         self.dependencies = dependencies
@@ -138,10 +137,6 @@ public final class LocationsViewModel {
             condition: forecast.current.condition,
             isDaylight: forecast.isDaylight(at: now)
         )
-    }
-
-    deinit {
-        fetchTask?.cancel()
     }
 
     // MARK: Editing
