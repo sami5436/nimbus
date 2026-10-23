@@ -19,8 +19,11 @@ if grep -rn $'\xe2\x80\x94' "$ROOT" --include='*.swift' --include='*.md' --inclu
   exit 1
 fi
 
-if [ -d /Applications/Xcode.app ]; then
-  echo "== swift test (Xcode present)"
+# `swift test` needs XCTest and Swift Testing, which Command Line Tools alone do not ship.
+if xcrun --find xctest >/dev/null 2>&1; then
+  echo "== swift test"
   swift test --package-path "$ROOT/NimbusKit"
+else
+  echo "== swift test (skipped: no Xcode toolchain active)"
 fi
 echo "presubmit: OK"
