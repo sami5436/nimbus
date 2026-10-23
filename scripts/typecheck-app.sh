@@ -8,6 +8,6 @@ BIN="$(swift build --package-path "$ROOT/NimbusKit" --show-bin-path)"
 swiftc -typecheck -parse-as-library -swift-version 6 \
   -target "$(uname -m)-apple-macos14.0" \
   -sdk "$(xcrun --show-sdk-path)" \
-  -I "$BIN/Modules" \
+  -I "$BIN/Modules" -I "$BIN" \
   "$ROOT"/App/Sources/*.swift
 echo "typecheck-app: OK"
