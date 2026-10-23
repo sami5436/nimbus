@@ -57,12 +57,18 @@ final class NimbusUITests: XCTestCase {
         beat()
         let result = tokyo.exists ? tokyo : oslo
         XCTAssertTrue(result.exists)
+        let addedName = tokyo.exists ? "Tokyo" : "Oslo"
         result.tap()
         beat(3)
+        // The search closes onto the new place's page; a broken add leaves the sheet open.
+        XCTAssertFalse(app.searchFields.firstMatch.exists, "search sheet should close after picking a result")
+        XCTAssertTrue(app.staticTexts[addedName].waitForExistence(timeout: 5), "added place should open as a page")
 
-        // Units toggle: back in the list, switch to Celsius.
+        // Units toggle: back in the list, which now includes the added place, switch to Celsius.
         app.buttons["Locations"].tap()
         beat(2)
+        XCTAssertTrue(app.buttons.containing(.staticText, identifier: addedName).firstMatch.exists,
+                      "added place should be in the saved list")
         let units = app.buttons["units-menu"]
         if units.waitForExistence(timeout: 5) {
             units.tap()
