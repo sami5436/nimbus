@@ -27,21 +27,48 @@ public enum TemperatureRangeBar {
         weekHigh: Double,
         current: Double? = nil
     ) -> RangeBarLayout {
-        // STUB(feat/core-domain)
-        RangeBarLayout(start: 0, end: 1, marker: nil)
+        let span = weekHigh - weekLow
+        guard span > 0 else {
+            return RangeBarLayout(start: 0, end: 1, marker: current == nil ? nil : 0.5)
+        }
+        func fraction(_ value: Double) -> Double { min(max((value - weekLow) / span, 0), 1) }
+        let start = fraction(low)
+        return RangeBarLayout(start: start, end: max(start, fraction(high)), marker: current.map(fraction))
     }
 }
 
 /// Color ramp used to fill range bars: cold blues through greens and yellows to hot reds.
 public enum TemperatureColorScale {
+    private static let stops: [(celsius: Double, color: PaletteColor)] = [
+        (-10, PaletteColor(hex: 0x4B6CF0)),
+        (0, PaletteColor(hex: 0x4AA3F5)),
+        (10, PaletteColor(hex: 0x52C7C0)),
+        (18, PaletteColor(hex: 0x8BD36B)),
+        (24, PaletteColor(hex: 0xF2D04A)),
+        (30, PaletteColor(hex: 0xF59A3A)),
+        (38, PaletteColor(hex: 0xE5453B)),
+    ]
+
     public static func color(celsius: Double) -> PaletteColor {
-        // STUB(feat/core-domain)
-        PaletteColor(hex: 0x4A90E2)
+        guard let first = stops.first, let last = stops.last else { return PaletteColor(hex: 0xFFFFFF) }
+        if celsius <= first.celsius { return first.color }
+        if celsius >= last.celsius { return last.color }
+        for (lower, upper) in zip(stops, stops.dropFirst()) where celsius <= upper.celsius {
+            let t = (celsius - lower.celsius) / (upper.celsius - lower.celsius)
+            return PaletteColor(
+                red: lower.color.red + (upper.color.red - lower.color.red) * t,
+                green: lower.color.green + (upper.color.green - lower.color.green) * t,
+                blue: lower.color.blue + (upper.color.blue - lower.color.blue) * t
+            )
+        }
+        return last.color
     }
 
     /// Ordered stops from `fromCelsius` to `toCelsius`, at least two.
     public static func gradient(fromCelsius: Double, toCelsius: Double) -> [PaletteColor] {
-        // STUB(feat/core-domain)
-        [color(celsius: fromCelsius), color(celsius: toCelsius)]
+        let steps = 6
+        return (0...steps).map { step in
+            color(celsius: fromCelsius + (toCelsius - fromCelsius) * Double(step) / Double(steps))
+        }
     }
 }

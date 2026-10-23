@@ -16,10 +16,24 @@ public struct CurrentConditionsHeader: View {
     }
 
     public var body: some View {
-        // STUB(feat/core-domain)
-        VStack {
+        VStack(spacing: 2) {
             Text(placeName)
+                .font(.system(size: 30, weight: .regular))
             Text(formatter.temperature(current.temperatureC))
+                .font(.system(size: 96, weight: .thin))
+                .padding(.leading, 18) // balances the degree sign so the digits look centered
+            Text(current.condition.displayName)
+                .font(.title3.weight(.medium))
+                .foregroundStyle(Color.white.opacity(0.8))
+            if let today {
+                Text("H:\(formatter.temperature(today.highC))  L:\(formatter.temperature(today.lowC))")
+                    .font(.title3.weight(.medium))
+            }
         }
+        .foregroundStyle(.white)
+        .shadow(color: .black.opacity(0.15), radius: 6, y: 1)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
