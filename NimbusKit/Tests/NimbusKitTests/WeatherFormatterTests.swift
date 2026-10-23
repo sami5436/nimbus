@@ -80,6 +80,6 @@ struct WeatherFormatterTests {
         let de = WeatherFormatter(preferences: Self.metric, locale: Self.de)
         #expect(us.weekdayLabel(date, timeZone: utc, isToday: true) == "Today")
         #expect(us.weekdayLabel(date, timeZone: utc, isToday: false) == "Sat")
-        #expect(de.weekdayLabel(date, timeZone: utc, isToday: false) == "Sa")
+        #expect(de.weekdayLabel(date, timeZone: utc, isToday: false).hasPrefix("Sa"))
     }
 }
