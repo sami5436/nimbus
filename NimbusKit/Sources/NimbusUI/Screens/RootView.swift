@@ -76,8 +76,9 @@ public struct RootView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            // Scroll clear of the floating locations button (button, its padding and the home indicator).
-            .contentMargins(.bottom, locationsButtonClearance, for: .scrollContent)
+            // Scroll clear of the floating locations button (button, its padding and the home indicator), capped so
+            // accessibility sizes do not scale the home indicator space too.
+            .contentMargins(.bottom, min(locationsButtonClearance, 160), for: .scrollContent)
             .ignoresSafeArea()
             #else
             if let place = locations.displayPlaces.first(where: { $0.id == selectedID.wrappedValue }) {
