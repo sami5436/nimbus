@@ -63,4 +63,10 @@ schemes:
     test:
       targets:
         - NimbusTests
+  NimbusDemo:
+    build:
+      targets:
+        Nimbus: all
+    test:
+      targets:
         - NimbusUITests
