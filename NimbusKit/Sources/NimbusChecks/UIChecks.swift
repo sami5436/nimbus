@@ -22,6 +22,33 @@ private actor CountingGeocoding: GeocodingService {
     }
 }
 
+/// Refreshes suspend until `release()`; nothing is cached. Lets checks prove nothing waits on the fetch.
+private actor GatedRepository: ForecastRepository {
+    private var released = false
+    private var requested = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func cachedForecast(for place: Place) async -> Forecast? { nil }
+
+    func refreshForecast(for place: Place) async throws -> Forecast {
+        requested += 1
+        if !released {
+            await withCheckedContinuation { waiters.append($0) }
+        }
+        return .preview
+    }
+
+    func waitUntilRequested() async {
+        while requested == 0 { await Task.yield() }
+    }
+
+    func release() {
+        released = true
+        waiters.forEach { $0.resume() }
+        waiters = []
+    }
+}
+
 /// Loads fine, fails every save.
 private struct SaveFailingStore: SavedPlacesStore {
     let places: [Place]
@@ -37,7 +64,7 @@ public enum UIChecks {
     private static let refDate = Forecast.previewReferenceDate
 
     private static func dependencies(
-        repository: FakeForecastRepository,
+        repository: any ForecastRepository,
         places: [Place] = [],
         store: InMemorySavedPlacesStore? = nil,
         geocoding: any GeocodingService = FakeGeocodingService(),
@@ -235,15 +262,33 @@ public enum UIChecks {
         await brokenVM.load()
         c.expect(brokenVM.hasLoaded && brokenVM.places.isEmpty, "store failure yields empty list")
 
-        // Summaries are cache-only: no network, and no fetch for uncached places.
+        // Uncached places fill in from a background fetch.
         let uncachedRepo = FakeForecastRepository()
         let uncachedVM = LocationsViewModel(
             dependencies: dependencies(repository: uncachedRepo, places: [cupertino, oslo]))
         await uncachedVM.load()
         await uncachedVM.add(Place(id: "1", name: "X", coordinate: Coordinate(latitude: 0, longitude: 0)))
-        c.expectEqual(await uncachedRepo.refreshCount, 0, "load and add never fetch")
-        c.expect(uncachedVM.summaries.isEmpty, "uncached places have no summary")
-        c.expectEqual(uncachedVM.places.count, 3, "add completes without network")
+        await uncachedVM.awaitBackgroundFetch()
+        c.expectEqual(uncachedVM.places.count, 3, "add completes")
+        c.expectEqual(uncachedVM.summaries.count, 3, "background fetch fills every card")
+
+        // The fetch never blocks: load and add return while it is suspended, then the card fills in.
+        let gate = GatedRepository()
+        let gatedVM = LocationsViewModel(dependencies: dependencies(repository: gate, places: [cupertino]))
+        await gatedVM.load()
+        await gate.waitUntilRequested()
+        c.expect(gatedVM.hasLoaded, "load returned while the fetch is suspended")
+        c.expect(gatedVM.summaries[cupertino.id] == nil, "card empty while fetch is suspended")
+        var selected: Place?
+        selected = oslo  // the screen selects first, then adds
+        await gatedVM.add(oslo)
+        c.expectEqual(selected, oslo, "selection happened while fetch was suspended")
+        c.expectEqual(gatedVM.places, [cupertino, oslo], "add returned while fetch is suspended")
+        c.expect(gatedVM.summaries.isEmpty, "still no summaries before the fetch completes")
+        await gate.release()
+        await gatedVM.awaitBackgroundFetch()
+        c.expect(gatedVM.summaries[cupertino.id] != nil, "card fills in after fetch completes")
+        c.expect(gatedVM.summaries[oslo.id] != nil, "added card fills in too")
 
         // Summary uses the injected clock: cache over a day old, night-time now.
         var oldCache = Forecast.preview

@@ -43,6 +43,8 @@ public final class LocationsViewModel {
     private let debounce: Duration
     private var searchTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
+    // Cancelled in deinit, which is nonisolated; Task is Sendable and only touched from the main actor.
+    @ObservationIgnored private nonisolated(unsafe) var fetchTask: Task<Void, Never>?
 
     public init(dependencies: AppDependencies, debounce: Duration = .milliseconds(300)) {
         self.dependencies = dependencies
@@ -86,24 +88,60 @@ public final class LocationsViewModel {
             isResolvingLocation = false
         }
         await loadSummaries()
+        startBackgroundFetch()
     }
 
-    /// Fills `summaries` from the cache only. Never touches the network: places without a cache
-    /// show a placeholder until their weather page loads, which avoids fetching the same place twice.
-    /// Uses the injected clock so a day-old cache shows today's range and the right sky.
+    /// Fills `summaries` from the cache only, never the network. `load` and `add` follow it with a
+    /// non-blocking background fetch for places that have no cache.
     public func loadSummaries() async {
-        let now = dependencies.now()
         for place in displayPlaces {
             guard let forecast = await dependencies.forecasts.cachedForecast(for: place) else { continue }
-            let today = forecast.day(containing: now)
-            summaries[place.id] = PlaceSummary(
-                temperatureC: forecast.current.temperatureC,
-                highC: today?.highC,
-                lowC: today?.lowC,
-                condition: forecast.current.condition,
-                isDaylight: forecast.isDaylight(at: now)
-            )
+            store(forecast, for: place)
         }
+    }
+
+    /// Fetches places that still have no summary, one at a time in a background task, updating each
+    /// card as it lands. Never awaited by load, add, selection or list edits. Runs are chained so a
+    /// second call waits for the first instead of fetching the same place twice.
+    private func startBackgroundFetch() {
+        let previous = fetchTask
+        fetchTask = Task { [weak self] in
+            await previous?.value
+            guard let ids = self?.displayPlaces else { return }
+            for place in ids {
+                guard !Task.isCancelled, let self else { return }
+                guard self.summaries[place.id] == nil else { continue }
+                let forecast: Forecast?
+                if let cached = await self.dependencies.forecasts.cachedForecast(for: place) {
+                    forecast = cached
+                } else {
+                    forecast = try? await self.dependencies.forecasts.refreshForecast(for: place)
+                }
+                if let forecast, !Task.isCancelled { self.store(forecast, for: place) }
+            }
+        }
+    }
+
+    /// Waits for the background summary fetch to finish. For checks.
+    public func awaitBackgroundFetch() async {
+        await fetchTask?.value
+    }
+
+    /// Uses the injected clock so a day-old cache shows today's range and the right sky.
+    private func store(_ forecast: Forecast, for place: Place) {
+        let now = dependencies.now()
+        let today = forecast.day(containing: now)
+        summaries[place.id] = PlaceSummary(
+            temperatureC: forecast.current.temperatureC,
+            highC: today?.highC,
+            lowC: today?.lowC,
+            condition: forecast.current.condition,
+            isDaylight: forecast.isDaylight(at: now)
+        )
+    }
+
+    deinit {
+        fetchTask?.cancel()
     }
 
     // MARK: Editing
@@ -119,6 +157,7 @@ public final class LocationsViewModel {
         await settlePersistence()
         updateQuery("")
         await loadSummaries()
+        startBackgroundFetch()
         return true
     }
 
