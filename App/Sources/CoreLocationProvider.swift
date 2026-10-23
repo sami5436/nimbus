@@ -3,14 +3,18 @@ import Foundation
 import NimbusCore
 
 /// `CurrentLocationProvider` backed by CoreLocation. App target only: the package never imports CoreLocation.
-/// Throws `.locationPermissionDenied` or `.locationUnavailable` (restricted, no fix in time, lookup failure).
+/// Throws `.locationPermissionDenied` or `.locationUnavailable` (restricted, timed out, cancelled).
 struct CoreLocationProvider: CurrentLocationProvider {
-    /// How long to wait for a first fix before giving up.
-    var fixTimeout: Duration = .seconds(10)
+    /// Bounds the whole flow, authorization prompt included, so an unanswered prompt cannot hang callers.
+    var timeout: Duration = .seconds(30)
 
     func currentPlace() async throws -> Place {
-        try await LocationAuthorizer.shared.ensureAuthorized()
-        let location = try await firstFix()
+        let location: CLLocation
+        do {
+            location = try await authorizedFix()
+        } catch is CancellationError {
+            throw WeatherError.locationUnavailable
+        }
         let label = await ReverseGeocoder.label(for: location)
         return Place(
             id: Place.currentLocationID,
@@ -21,16 +25,18 @@ struct CoreLocationProvider: CurrentLocationProvider {
         )
     }
 
-    private func firstFix() async throws -> CLLocation {
-        try await withThrowingTaskGroup(of: CLLocation.self) { group in
+    private func authorizedFix() async throws -> CLLocation {
+        let timeout = timeout
+        return try await withThrowingTaskGroup(of: CLLocation.self) { group in
             group.addTask {
+                try await LocationAuthorizer.shared.ensureAuthorized()
                 for try await update in CLLocationUpdate.liveUpdates() {
                     if let location = update.location { return location }
                 }
                 throw WeatherError.locationUnavailable
             }
             group.addTask {
-                try await Task.sleep(for: fixTimeout)
+                try await Task.sleep(for: timeout)
                 throw WeatherError.locationUnavailable
             }
             defer { group.cancelAll() }

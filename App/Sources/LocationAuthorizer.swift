@@ -8,7 +8,7 @@ final class LocationAuthorizer: NSObject, CLLocationManagerDelegate {
     static let shared = LocationAuthorizer()
 
     private let manager = CLLocationManager()
-    private var waiters: [CheckedContinuation<CLAuthorizationStatus, Never>] = []
+    private var waiters: [UUID: CheckedContinuation<CLAuthorizationStatus, Never>] = [:]
 
     private override init() {
         super.init()
@@ -16,20 +16,31 @@ final class LocationAuthorizer: NSObject, CLLocationManagerDelegate {
     }
 
     /// Returns when location may be read. Prompts once if the user has not decided yet.
-    /// - Throws: `.locationPermissionDenied` when denied, `.locationUnavailable` when restricted
-    ///   (for example by parental controls, so the user cannot grant it) or still undecided.
+    /// Cancelling the task while the prompt is up stops the wait and throws `.locationUnavailable`.
     func ensureAuthorized() async throws {
         var status = manager.authorizationStatus
         if status == .notDetermined {
-            status = await withCheckedContinuation { continuation in
-                waiters.append(continuation)
-                manager.requestWhenInUseAuthorization()
+            let id = UUID()
+            status = await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    guard !Task.isCancelled else { return continuation.resume(returning: .notDetermined) }
+                    waiters[id] = continuation
+                    manager.requestWhenInUseAuthorization()
+                }
+            } onCancel: {
+                Task { @MainActor in self.cancelWaiter(id) }
             }
         }
+        if let error = Self.error(for: status) { throw error }
+    }
+
+    /// Nil when location may be read. Denied is `.locationPermissionDenied`. Restricted (the user
+    /// cannot grant it, for example parental controls) and undecided are `.locationUnavailable`.
+    nonisolated static func error(for status: CLAuthorizationStatus) -> WeatherError? {
         switch status {
-        case .denied: throw WeatherError.locationPermissionDenied
-        case .restricted, .notDetermined: throw WeatherError.locationUnavailable
-        default: return
+        case .denied: .locationPermissionDenied
+        case .restricted, .notDetermined: .locationUnavailable
+        default: nil
         }
     }
 
@@ -42,7 +53,11 @@ final class LocationAuthorizer: NSObject, CLLocationManagerDelegate {
         // The delegate also fires with the current state when it is attached; wait for a decision.
         guard status != .notDetermined else { return }
         let pending = waiters
-        waiters = []
-        for waiter in pending { waiter.resume(returning: status) }
+        waiters = [:]
+        for waiter in pending.values { waiter.resume(returning: status) }
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        waiters.removeValue(forKey: id)?.resume(returning: .notDetermined)
     }
 }
