@@ -9,6 +9,14 @@ enum ReverseGeocoder {
         var country: String?
 
         static let fallback = Label(name: "Current Location", country: nil)
+
+        /// City name first, then the map item's own name, else the fallback. Empty strings count as missing.
+        static func make(cityName: String?, itemName: String?, regionName: String?) -> Label {
+            guard let name = [cityName, itemName].compactMap({ $0 }).first(where: { !$0.isEmpty }) else {
+                return .fallback
+            }
+            return Label(name: name, country: regionName.flatMap { $0.isEmpty ? nil : $0 })
+        }
     }
 
     static func label(for location: CLLocation) async -> Label {
@@ -17,8 +25,7 @@ enum ReverseGeocoder {
         guard let item = try? await request.mapItems.first,
               let representations = item.addressRepresentations
         else { return .fallback }
-        let name = representations.cityName ?? item.name
-        guard let name, !name.isEmpty else { return .fallback }
-        return Label(name: name, country: representations.regionName)
+        return Label.make(
+            cityName: representations.cityName, itemName: item.name, regionName: representations.regionName)
     }
 }
