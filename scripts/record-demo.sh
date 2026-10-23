@@ -55,8 +55,8 @@ REC=""
 LEN=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$RAW")
 ffmpeg -y -loglevel error -i "$RAW" -t "$(awk -v l="$LEN" 'BEGIN { print l - 2 }')" -vf "scale=590:-2" -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart "$MP4"
 
-# Palette-based GIF, 15 fps, 400 px wide.
+# Palette-based GIF, 10 fps, 400 px wide.
 ffmpeg -y -loglevel error -i "$MP4" \
-  -vf "fps=15,scale=400:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=5" \
+  -vf "fps=10,scale=400:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=5" \
   "$GIF"
 ls -lh "$MP4" "$GIF"
