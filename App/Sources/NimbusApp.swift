@@ -4,7 +4,9 @@ import NimbusUI
 
 @main
 struct NimbusApp: App {
-    private let dependencies = AppDependencies.live()
+    // The UI demo test passes -NimbusSampleData to run offline with sample data.
+    private let dependencies = ProcessInfo.processInfo.arguments.contains("-NimbusSampleData")
+        ? AppDependencies.preview() : AppDependencies.live()
 
     var body: some Scene {
         WindowGroup {
