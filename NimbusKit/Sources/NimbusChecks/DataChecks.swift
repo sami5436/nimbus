@@ -233,7 +233,9 @@ public enum DataChecks {
         let live = URLSessionHTTPClient(session: session)
         await c.expectThrows(.exactly(.offline)) { _ = try await live.get(URL(string: "https://offline.test/")!) }
         FailingURLProtocol.code = .badURL
-        await c.expectThrows(.anyWeatherError) { _ = try await live.get(URL(string: "https://offline.test/")!) }
+        await c.expectThrows(.exactly(.unknown(URLError(.badURL).localizedDescription))) {
+            _ = try await live.get(URL(string: "https://offline.test/")!)
+        }
         FailingURLProtocol.code = .timedOut
         await c.expectThrows(.exactly(.offline)) { _ = try await live.get(URL(string: "https://offline.test/")!) }
         FailingURLProtocol.code = .notConnectedToInternet
@@ -262,7 +264,10 @@ public enum DataChecks {
         await cache.store(forecast, forPlaceID: "../escape")
         let escaped = await cache.forecast(forPlaceID: "../escape")
         c.expectEqual(escaped, forecast, "hostile ids stay inside the cache directory")
-        c.expect(!FileManager.default.fileExists(atPath: dir.deletingLastPathComponent().appendingPathComponent("escape.json").path))
+        c.expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("escape.json").path),
+                 "unencoded id would have landed at <dir>/escape.json")
+        let cacheFiles = (try? FileManager.default.contentsOfDirectory(atPath: dir.appendingPathComponent("forecasts").path)) ?? []
+        c.expect(cacheFiles.contains("%2E%2E%2Fescape.json"), "forecasts/ holds the percent-encoded name: \(cacheFiles)")
 
         let corruptURL = dir.appendingPathComponent("forecasts").appendingPathComponent("1.json")
         try? Data("not json".utf8).write(to: corruptURL)
@@ -288,6 +293,13 @@ public enum DataChecks {
         c.expectEqual(reloaded, reordered, "a new store instance reads what was saved")
         try? Data("{{".utf8).write(to: dir.appendingPathComponent("places.json"))
         await c.expectThrows(.exactly(.decoding)) { _ = try await fresh.loadPlaces() }
+
+        // A read failure other than "no such file" must throw, never read as [] (a later save would clobber the list).
+        let unreadable = dir.appendingPathComponent("unreadable", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: unreadable.appendingPathComponent("places.json"), withIntermediateDirectories: true)
+        let blocked = FileSavedPlacesStore(directory: unreadable)
+        await c.expectThrows(.anyWeatherError) { _ = try await blocked.loadPlaces() }
 
         let prefs = FilePreferencesStore(directory: dir)
         let initial = await prefs.loadPreferences()

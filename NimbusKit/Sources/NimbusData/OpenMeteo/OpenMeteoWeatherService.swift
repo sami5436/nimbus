@@ -7,9 +7,11 @@ public struct OpenMeteoWeatherService: WeatherService {
     private let client: any HTTPClient
     private let baseURL: URL
 
+    public static let defaultBaseURL = URL(string: "https://api.open-meteo.com/v1/forecast")!
+
     public init(
         client: any HTTPClient = URLSessionHTTPClient(),
-        baseURL: URL = URL(string: "https://api.open-meteo.com/v1/forecast")!
+        baseURL: URL = OpenMeteoWeatherService.defaultBaseURL
     ) {
         self.client = client
         self.baseURL = baseURL
@@ -24,7 +26,7 @@ public struct OpenMeteoWeatherService: WeatherService {
     /// The request URL for `coordinate`. Exposed for checks.
     public static func url(
         for coordinate: Coordinate,
-        baseURL: URL = URL(string: "https://api.open-meteo.com/v1/forecast")!
+        baseURL: URL = OpenMeteoWeatherService.defaultBaseURL
     ) -> URL {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.queryItems = [

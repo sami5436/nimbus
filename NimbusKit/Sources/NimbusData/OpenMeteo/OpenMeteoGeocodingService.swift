@@ -7,9 +7,11 @@ public struct OpenMeteoGeocodingService: GeocodingService {
     private let client: any HTTPClient
     private let baseURL: URL
 
+    public static let defaultBaseURL = URL(string: "https://geocoding-api.open-meteo.com/v1/search")!
+
     public init(
         client: any HTTPClient = URLSessionHTTPClient(),
-        baseURL: URL = URL(string: "https://geocoding-api.open-meteo.com/v1/search")!
+        baseURL: URL = OpenMeteoGeocodingService.defaultBaseURL
     ) {
         self.client = client
         self.baseURL = baseURL
@@ -26,7 +28,7 @@ public struct OpenMeteoGeocodingService: GeocodingService {
     /// The request URL for `query`. Exposed for checks.
     public static func url(
         for query: String,
-        baseURL: URL = URL(string: "https://geocoding-api.open-meteo.com/v1/search")!
+        baseURL: URL = OpenMeteoGeocodingService.defaultBaseURL
     ) -> URL {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         // URLQueryItem leaves "+" and "&" alone, which would corrupt names like "C++", so encode by hand.
