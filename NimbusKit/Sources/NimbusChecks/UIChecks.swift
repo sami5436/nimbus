@@ -392,6 +392,50 @@ public enum UIChecks {
 
     // MARK: Snapshots
 
+    /// Which pixel rows (in points) of a rendered screen hold anything other than the sky.
+    /// The sky is constant across a row apart from the top glow, so a pixel that differs from the
+    /// row's leftmost pixel is content. Plain sky (nothing rendered) has no such rows.
+    private struct ContentRows {
+        let width: CGFloat
+        let height: CGFloat
+        private let rows: [Bool]
+        private let scale: CGFloat
+
+        @MainActor
+        init?<V: View>(_ view: V, size: CGSize) {
+            let renderer = ImageRenderer(
+                content: view.frame(width: size.width, height: size.height).environment(\.colorScheme, .dark))
+            renderer.scale = 2
+            guard let image = renderer.cgImage else { return nil }
+            let w = image.width, h = image.height
+            var pixels = [UInt8](repeating: 0, count: w * h * 4)
+            let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+                guard let context = CGContext(
+                    data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+                else { return false }
+                context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+                return true
+            }
+            guard drawn else { return nil }
+            rows = (0..<h).map { y in
+                let base = y * w * 4
+                return (1..<w).contains { x in
+                    (0..<3).contains { abs(Int(pixels[base + x * 4 + $0]) - Int(pixels[base + $0])) > 6 }
+                }
+            }
+            scale = renderer.scale
+            width = CGFloat(w) / scale
+            height = CGFloat(h) / scale
+        }
+
+        /// True if any row whose top edge lies in `range` (points from the top) holds content.
+        func hasContent(in range: Range<CGFloat>) -> Bool {
+            rows.indices.contains { range.contains(CGFloat($0) / scale) && rows[$0] }
+        }
+    }
+
     private static func snapshotChecks(_ c: inout Checker) async {
         let size = CGSize(width: 390, height: 844)
         // Loaded screens are taller than a device and ImageRenderer cannot scroll, so render them tall and unscrolled.
@@ -410,11 +454,17 @@ public enum UIChecks {
         let loaded = WeatherViewModel(place: cupertino, dependencies: okDeps)
         await loaded.load()
         c.expect(Snapshot.render(screen(loaded, settings, refDate), name: "weather-loaded", size: tallSize) != nil, "snapshot loaded")
+        let loadedRows = ContentRows(screen(loaded, settings, refDate), size: tallSize)
+        c.expect(loadedRows?.hasContent(in: size.height..<(tallSize.height - 8)) == true, "loaded renders content below the first screen")
+        c.expect(loadedRows?.hasContent(in: (tallSize.height - 8)..<tallSize.height) == false, "loaded content ends inside the canvas")
 
         let offlineRepo = FakeForecastRepository(cached: [cupertino.id: staleForecast()], refreshResult: .failure(.offline))
         let offline = WeatherViewModel(place: cupertino, dependencies: dependencies(repository: offlineRepo))
         await offline.load()
         c.expect(Snapshot.render(screen(offline, settings, refDate), name: "weather-offline", size: tallSize) != nil, "snapshot stale offline")
+        let offlineRows = ContentRows(screen(offline, settings, refDate), size: tallSize)
+        c.expect(offlineRows?.hasContent(in: size.height..<(tallSize.height - 8)) == true, "offline renders content below the first screen")
+        c.expect(offlineRows?.hasContent(in: (tallSize.height - 8)..<tallSize.height) == false, "offline last tile row stays inside the canvas")
 
         let failRepo = FakeForecastRepository(refreshResult: .failure(.server(statusCode: 500)))
         let failed = WeatherViewModel(place: cupertino, dependencies: dependencies(repository: failRepo))

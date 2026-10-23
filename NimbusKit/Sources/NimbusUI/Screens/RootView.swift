@@ -21,6 +21,8 @@ public struct RootView: View {
             pager
             bottomBar
         }
+        // Every page sits on a dark-ish sky, so the status bar uses light content like Apple Weather.
+        .preferredColorScheme(.dark)
         .task {
             await settings.load()
             await locations.load()
@@ -73,6 +75,8 @@ public struct RootView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            // Scroll clear of the floating locations button (button, its padding and the home indicator).
+            .contentMargins(.bottom, 100, for: .scrollContent)
             .ignoresSafeArea()
             #else
             if let place = locations.displayPlaces.first(where: { $0.id == selectedID.wrappedValue }) {
