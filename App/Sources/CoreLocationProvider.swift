@@ -5,7 +5,8 @@ import NimbusCore
 /// `CurrentLocationProvider` backed by CoreLocation. App target only: the package never imports CoreLocation.
 /// Throws `.locationPermissionDenied` or `.locationUnavailable` (restricted, timed out, cancelled).
 struct CoreLocationProvider: CurrentLocationProvider {
-    /// Bounds the whole flow, authorization prompt included, so an unanswered prompt cannot hang callers.
+    /// Bounds the location fix only. The authorization prompt is excluded: the user may take as long as
+    /// they like, and the wait ends on their decision or on task cancellation.
     var timeout: Duration = .seconds(30)
 
     func currentPlace() async throws -> Place {
@@ -26,10 +27,10 @@ struct CoreLocationProvider: CurrentLocationProvider {
     }
 
     private func authorizedFix() async throws -> CLLocation {
+        try await LocationAuthorizer.shared.ensureAuthorized()
         let timeout = timeout
         return try await withThrowingTaskGroup(of: CLLocation.self) { group in
             group.addTask {
-                try await LocationAuthorizer.shared.ensureAuthorized()
                 for try await update in CLLocationUpdate.liveUpdates() {
                     if let location = update.location { return location }
                 }
