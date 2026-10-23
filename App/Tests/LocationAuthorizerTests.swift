@@ -18,7 +18,7 @@ struct LocationAuthorizerTests {
         while manager.promptCount == 0 { await Task.yield() }
     }
 
-    @Test func cancellingWhilePromptIsUpThrowsUnavailable() async {
+    @Test(.timeLimit(.minutes(1))) func cancellingWhilePromptIsUpThrowsUnavailable() async {
         let manager = FakeManager()
         let authorizer = LocationAuthorizer(manager: manager)
         let task = Task { try await authorizer.ensureAuthorized() }
@@ -27,15 +27,16 @@ struct LocationAuthorizerTests {
         await #expect(throws: WeatherError.locationUnavailable) { try await task.value }
     }
 
-    @Test func cancellingBeforeTheWaiterIsRegisteredThrowsUnavailable() async {
+    @Test(.timeLimit(.minutes(1))) func cancellingBeforeTheWaiterIsRegisteredThrowsUnavailable() async {
         let manager = FakeManager()
         let authorizer = LocationAuthorizer(manager: manager)
         let task = Task { try await authorizer.ensureAuthorized() }
         task.cancel()
         await #expect(throws: WeatherError.locationUnavailable) { try await task.value }
+        #expect(manager.promptCount == 0)
     }
 
-    @Test func decisionAfterPromptResumesWaiterOnce() async throws {
+    @Test(.timeLimit(.minutes(1))) func decisionAfterPromptResumesWaiterOnce() async throws {
         let manager = FakeManager()
         let authorizer = LocationAuthorizer(manager: manager)
         let task = Task { try await authorizer.ensureAuthorized() }
