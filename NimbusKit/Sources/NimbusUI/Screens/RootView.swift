@@ -21,6 +21,8 @@ public struct RootView: View {
             pager
             bottomBar
         }
+        // Every page sits on a dark-ish sky, so the status bar uses light content like Apple Weather.
+        .preferredColorScheme(.dark)
         .task {
             await settings.load()
             await locations.load()
