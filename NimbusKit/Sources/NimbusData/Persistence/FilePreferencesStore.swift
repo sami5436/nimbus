@@ -10,11 +10,12 @@ public actor FilePreferencesStore: PreferencesStore {
     }
 
     public func loadPreferences() async -> UnitPreferences {
-        // STUB(feat/data)
-        .default
+        JSONFile.read(UnitPreferences.self, from: fileURL) ?? .default
     }
 
     public func savePreferences(_ preferences: UnitPreferences) async {
-        // STUB(feat/data)
+        try? JSONFile.write(preferences, to: fileURL)
     }
+
+    private var fileURL: URL { directory.appendingPathComponent("preferences.json") }
 }

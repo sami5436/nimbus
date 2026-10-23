@@ -10,11 +10,18 @@ public actor FileForecastCache: ForecastCache {
     }
 
     public func forecast(forPlaceID placeID: String) async -> Forecast? {
-        // STUB(feat/data)
-        nil
+        JSONFile.read(Forecast.self, from: fileURL(for: placeID))
     }
 
     public func store(_ forecast: Forecast, forPlaceID placeID: String) async {
-        // STUB(feat/data)
+        // Best effort: a failed cache write must never fail a refresh.
+        try? JSONFile.write(forecast, to: fileURL(for: placeID))
+    }
+
+    private func fileURL(for placeID: String) -> URL {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+        let name = placeID.addingPercentEncoding(withAllowedCharacters: allowed) ?? placeID
+        return directory.appendingPathComponent("forecasts", isDirectory: true)
+            .appendingPathComponent("\(name).json")
     }
 }
