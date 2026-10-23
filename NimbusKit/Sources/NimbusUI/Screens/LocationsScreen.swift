@@ -115,6 +115,9 @@ public struct LocationsScreen: View {
                         Text(place.name).font(.headline)
                         Text(subtitle(place)).font(.subheadline).foregroundStyle(.secondary)
                     }
+                    // A plain button only hits its drawn text; make the whole row tappable.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
