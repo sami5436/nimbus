@@ -20,7 +20,16 @@ public struct UnitPreferences: Sendable, Hashable, Codable {
         self.speed = speed
     }
 
-    public static let `default` = UnitPreferences(temperature: .fahrenheit, speed: .milesPerHour)
+    /// Defaults follow the device locale: Fahrenheit and mph for US, Celsius and mph for UK, metric elsewhere.
+    public static var `default`: UnitPreferences { UnitPreferences(locale: .current) }
+
+    public init(locale: Locale) {
+        switch locale.measurementSystem {
+        case .us: self.init(temperature: .fahrenheit, speed: .milesPerHour)
+        case .uk: self.init(temperature: .celsius, speed: .milesPerHour)
+        default: self.init(temperature: .celsius, speed: .kilometersPerHour)
+        }
+    }
 
     /// Distance, precipitation and pressure follow the speed toggle:
     /// mph means miles, inches and inHg; km/h means kilometers, millimeters and hPa.

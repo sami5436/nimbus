@@ -19,7 +19,29 @@ public struct TemperatureRangeBarView: View {
     }
 
     public var body: some View {
-        // STUB(feat/core-domain)
-        Capsule().frame(height: 4)
+        let layout = TemperatureRangeBar.layout(
+            low: low, high: high, weekLow: weekLow, weekHigh: weekHigh, current: current)
+        let colors = TemperatureColorScale.gradient(fromCelsius: low, toCelsius: high).map(Color.init)
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let segment = max(layout.end - layout.start, 0) * width
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.black.opacity(0.22))
+                Capsule()
+                    .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(segment, 4))
+                    .offset(x: min(layout.start * width, width - max(segment, 4)))
+                if let marker = layout.marker {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 6, height: 6)
+                        .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 1.5))
+                        .offset(x: min(max(marker * width - 3, 0), width - 6))
+                }
+            }
+            .frame(height: proxy.size.height)
+        }
+        .frame(height: 5)
+        .accessibilityHidden(true)
     }
 }

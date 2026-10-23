@@ -13,73 +13,111 @@ public struct WeatherFormatter: Sendable {
 
     /// "72°"
     public func temperature(_ celsius: Double) -> String {
-        // STUB(feat/core-domain)
-        "\(Int(celsius))°"
+        let value = UnitConversion.temperature(celsius: celsius, to: preferences.temperature)
+        // Int conversion drops the sign of negative zero.
+        return "\(Int(value.rounded()))°"
     }
 
     /// "72°F"
     public func temperatureWithUnit(_ celsius: Double) -> String {
-        // STUB(feat/core-domain)
-        temperature(celsius)
+        temperature(celsius) + (preferences.temperature == .fahrenheit ? "F" : "C")
     }
 
     /// "12 mph" or "19 km/h"
     public func windSpeed(_ kmh: Double) -> String {
-        // STUB(feat/core-domain)
-        "\(Int(kmh))"
+        let value = UnitConversion.speed(kmh: kmh, to: preferences.speed)
+        let unit = preferences.speed == .milesPerHour ? "mph" : "km/h"
+        return "\(Int(value.rounded())) \(unit)"
     }
 
     /// 16-point compass, "N", "NNE" ... "NNW". Input in degrees, any range.
     public func compassDirection(degrees: Double) -> String {
-        // STUB(feat/core-domain)
-        "N"
+        let names = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+                     "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+        let index = Int((degrees / 22.5).rounded()) % 16
+        return names[(index + 16) % 16]
     }
 
     /// "10 mi" or "16 km"
     public func visibility(_ meters: Double) -> String {
-        // STUB(feat/core-domain)
-        "\(Int(meters))"
+        let imperial = preferences.usesImperialMeasures
+        let value = UnitConversion.visibility(meters: meters, imperial: imperial)
+        let unit = imperial ? "mi" : "km"
+        return "\(number(value, decimals: value < 1 ? 1 : 0)) \(unit)"
     }
 
     /// "0.2 in" or "4 mm"
     public func precipitation(_ mm: Double) -> String {
-        // STUB(feat/core-domain)
-        "\(mm)"
+        let imperial = preferences.usesImperialMeasures
+        let value = UnitConversion.precipitation(mm: mm, imperial: imperial)
+        return imperial ? "\(number(value, decimals: 1)) in" : "\(number(value, decimals: 0)) mm"
     }
 
     /// "29.92 inHg" or "1013 hPa"
     public func pressure(_ hPa: Double) -> String {
-        // STUB(feat/core-domain)
-        "\(Int(hPa))"
+        let imperial = preferences.usesImperialMeasures
+        let value = UnitConversion.pressure(hPa: hPa, imperial: imperial)
+        return imperial ? "\(number(value, decimals: 2)) inHg" : "\(number(value, decimals: 0)) hPa"
     }
 
     /// "87%"
     public func percent(_ value: Double) -> String {
-        // STUB(feat/core-domain)
-        "\(Int(value))%"
+        "\(Int(value.rounded()))%"
     }
 
     /// WHO category: "Low" (0-2), "Moderate" (3-5), "High" (6-7), "Very High" (8-10), "Extreme" (11+).
     public func uvCategory(_ index: Double) -> String {
-        // STUB(feat/core-domain)
-        ""
+        switch index.rounded() {
+        case ..<3: "Low"
+        case ..<6: "Moderate"
+        case ..<8: "High"
+        case ..<11: "Very High"
+        default: "Extreme"
+        }
     }
 
     /// "Now" when `isNow`, else "3PM" (locale-aware hour), in the forecast's time zone.
     public func hourLabel(_ date: Date, timeZone: TimeZone, isNow: Bool) -> String {
-        // STUB(feat/core-domain)
-        isNow ? "Now" : ""
+        if isNow { return "Now" }
+        var label = format(date, template: "j", timeZone: timeZone)
+        // "2 PM" -> "2PM". Only for Latin AM/PM symbols; "21 Uhr" and "오후 2시" keep their spaces.
+        let symbols = DateFormatter()
+        symbols.locale = locale
+        for symbol in [symbols.amSymbol, symbols.pmSymbol].compactMap({ $0 }) where symbol.allSatisfy(\.isASCII) {
+            label = label.replacingOccurrences(of: " \(symbol)", with: symbol)
+                .replacingOccurrences(of: "\(symbol) ", with: symbol)
+        }
+        return label
     }
 
     /// "Today" when `isToday`, else abbreviated weekday "Tue", in the forecast's time zone.
     public func weekdayLabel(_ date: Date, timeZone: TimeZone, isToday: Bool) -> String {
-        // STUB(feat/core-domain)
-        isToday ? "Today" : ""
+        isToday ? "Today" : format(date, template: "EEE", timeZone: timeZone)
     }
 
     /// "7:12 AM", in the forecast's time zone.
     public func clockTime(_ date: Date, timeZone: TimeZone) -> String {
-        // STUB(feat/core-domain)
-        ""
+        format(date, template: "jmm", timeZone: timeZone)
+    }
+
+    private func number(_ value: Double, decimals: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = decimals
+        formatter.maximumFractionDigits = decimals
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+
+    private func format(_ date: Date, template: String, timeZone: TimeZone) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        formatter.setLocalizedDateFormatFromTemplate(template)
+        // Newer ICU uses a narrow no-break space before AM/PM; normalize to a plain space.
+        return formatter.string(from: date)
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
     }
 }

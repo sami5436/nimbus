@@ -17,7 +17,45 @@ public struct HourlyForecastStrip: View {
     }
 
     public var body: some View {
-        // STUB(feat/core-domain)
-        Text("\(hours.count) hours")
+        VStack(alignment: .leading, spacing: 10) {
+            CardHeader(title: "Hourly Forecast", symbol: "clock")
+            Divider().overlay(Color.white.opacity(0.2))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 22) {
+                    ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
+                        column(hour, isNow: index == 0)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(14)
+        .weatherCard()
+    }
+
+    private func column(_ hour: HourlyForecast, isNow: Bool) -> some View {
+        VStack(spacing: 8) {
+            Text(formatter.hourLabel(hour.time, timeZone: timeZone, isNow: isNow))
+                .font(.subheadline.weight(.medium))
+            VStack(spacing: 1) {
+                Image(systemName: hour.condition.symbolName(isDaylight: hour.isDaylight))
+                    .symbolRenderingMode(.multicolor)
+                    .font(.title3)
+                    .frame(height: 26)
+                Text(chance(hour) ?? " ")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color(red: 0.55, green: 0.85, blue: 1))
+            }
+            Text(formatter.temperature(hour.temperatureC))
+                .font(.body.weight(.medium))
+        }
+        .foregroundStyle(.white)
+        .frame(minWidth: 40)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func chance(_ hour: HourlyForecast) -> String? {
+        guard let percent = hour.precipitationProbabilityPercent, percent >= 20 else { return nil }
+        return "\(percent)%"
     }
 }
