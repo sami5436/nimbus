@@ -141,6 +141,7 @@ public struct LocationsScreen: View {
         } label: {
             Image(systemName: "ellipsis.circle")
         }
+        .accessibilityIdentifier("units-menu")
     }
 }
 
