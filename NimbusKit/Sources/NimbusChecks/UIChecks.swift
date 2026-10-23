@@ -396,8 +396,6 @@ public enum UIChecks {
     /// The sky is constant across a row apart from the top glow, so a pixel that differs from the
     /// row's leftmost pixel is content. Plain sky (nothing rendered) has no such rows.
     private struct ContentRows {
-        let width: CGFloat
-        let height: CGFloat
         private let rows: [Bool]
         private let scale: CGFloat
 
@@ -426,8 +424,6 @@ public enum UIChecks {
                 }
             }
             scale = renderer.scale
-            width = CGFloat(w) / scale
-            height = CGFloat(h) / scale
         }
 
         /// True if any row whose top edge lies in `range` (points from the top) holds content.
