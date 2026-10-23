@@ -43,3 +43,30 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sami5436.nimbus.tests
         GENERATE_INFOPLIST_FILE: YES
+  NimbusUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: App/UITests
+    dependencies:
+      - target: Nimbus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sami5436.nimbus.uitests
+        TEST_TARGET_NAME: Nimbus
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Nimbus:
+    build:
+      targets:
+        Nimbus: all
+    test:
+      targets:
+        - NimbusTests
+  NimbusDemo:
+    build:
+      targets:
+        Nimbus: all
+    test:
+      targets:
+        - NimbusUITests
