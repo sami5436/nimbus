@@ -23,14 +23,18 @@ xcrun simctl privacy "$UDID" grant location com.sami5436.nimbus 2>/dev/null || t
 
 # Build first so recording starts right before the tour, not before compilation.
 DEST="platform=iOS Simulator,id=$UDID"
-xcodebuild -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST" build-for-testing -quiet
+xcodebuild -project Nimbus.xcodeproj -scheme NimbusDemo -destination "$DEST" build-for-testing -quiet
 
-RAW=$(mktemp -t nimbus-demo).mp4
-READY=/tmp/nimbus-demo-ready
-rm -f "$RAW" "$READY"
+TMP=$(mktemp -d)
+RAW="$TMP/demo.mp4"
+READY=/tmp/nimbus-demo-ready  # fixed path: the test writes it
+REC=""
+# Always stop the recorder and remove temp files, on success or failure.
+trap '[ -z "$REC" ] || kill -INT "$REC" 2>/dev/null || true; rm -rf "$TMP" "$READY"' EXIT
+rm -f "$READY"
 
 # The test drops $READY once the forecast is on screen; recording starts then, so launch time is skipped.
-xcodebuild -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST" \
+xcodebuild -project Nimbus.xcodeproj -scheme NimbusDemo -destination "$DEST" \
   test-without-building -only-testing:NimbusUITests/NimbusUITests/testDemoTour -quiet &
 TEST=$!
 while [ ! -e "$READY" ]; do
@@ -39,19 +43,17 @@ while [ ! -e "$READY" ]; do
 done
 xcrun simctl io "$UDID" recordVideo --codec h264 --force "$RAW" &
 REC=$!
-trap 'kill -INT $REC 2>/dev/null || true' EXIT
 
 TEST_STATUS=0
 wait "$TEST" || TEST_STATUS=$?
 kill -INT "$REC"
 wait "$REC" || true
-trap - EXIT
+REC=""
 [ "$TEST_STATUS" -eq 0 ] || exit "$TEST_STATUS"
 
 # Drop the last 2 s (the app has quit by then) and shrink the capture to keep the MP4 small.
 LEN=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$RAW")
 ffmpeg -y -loglevel error -i "$RAW" -t "$(awk -v l="$LEN" 'BEGIN { print l - 2 }')" -vf "scale=590:-2" -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart "$MP4"
-rm -f "$RAW"
 
 # Palette-based GIF, 15 fps, 400 px wide.
 ffmpeg -y -loglevel error -i "$MP4" \
