@@ -28,15 +28,18 @@ else
 fi
 # Opt-in: the hosted App tests need the simulator, so they stay out of the default fast path.
 if [[ "${NIMBUS_APP_TESTS:-0}" == "1" ]]; then
-  DEST='platform=iOS Simulator,name=iPhone 17 Pro'
+  SIM="${NIMBUS_SIM:-iPhone 17 Pro}"
   if xcodebuild -version >/dev/null 2>&1 && command -v xcodegen >/dev/null 2>&1 \
-      && xcrun simctl list devices available 2>/dev/null | grep -q "iPhone 17 Pro"; then
+      && xcrun simctl list devices available 2>/dev/null | grep -q "^ *$SIM ("; then
     echo "== app tests"
-    trap 'rm -rf "$ROOT/Nimbus.xcodeproj"' EXIT
+    # Only clean up a project this run generated, never one that was already there.
+    if [[ ! -e "$ROOT/Nimbus.xcodeproj" ]]; then
+      trap 'rm -rf "$ROOT/Nimbus.xcodeproj"' EXIT
+    fi
     (cd "$ROOT" && xcodegen generate -q \
-      && xcodebuild test -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST")
+      && xcodebuild test -project Nimbus.xcodeproj -scheme Nimbus -destination "platform=iOS Simulator,name=$SIM")
   else
-    echo "== app tests (skipped: needs Xcode, xcodegen and the iPhone 17 Pro simulator)"
+    echo "== app tests (skipped: needs Xcode, xcodegen and the \"$SIM\" simulator; override with NIMBUS_SIM)"
   fi
 fi
 echo "presubmit: OK"
