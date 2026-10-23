@@ -67,7 +67,7 @@ public struct WeatherFormatter: Sendable {
 
     /// WHO category: "Low" (0-2), "Moderate" (3-5), "High" (6-7), "Very High" (8-10), "Extreme" (11+).
     public func uvCategory(_ index: Double) -> String {
-        switch index.rounded(.down) {
+        switch index.rounded() {
         case ..<3: "Low"
         case ..<6: "Moderate"
         case ..<8: "High"
@@ -79,7 +79,15 @@ public struct WeatherFormatter: Sendable {
     /// "Now" when `isNow`, else "3PM" (locale-aware hour), in the forecast's time zone.
     public func hourLabel(_ date: Date, timeZone: TimeZone, isNow: Bool) -> String {
         if isNow { return "Now" }
-        return format(date, template: "j", timeZone: timeZone).filter { !$0.isWhitespace }
+        var label = format(date, template: "j", timeZone: timeZone)
+        // "2 PM" -> "2PM". Only for Latin AM/PM symbols; "21 Uhr" and "오후 2시" keep their spaces.
+        let symbols = DateFormatter()
+        symbols.locale = locale
+        for symbol in [symbols.amSymbol, symbols.pmSymbol].compactMap({ $0 }) where symbol.allSatisfy(\.isASCII) {
+            label = label.replacingOccurrences(of: " \(symbol)", with: symbol)
+                .replacingOccurrences(of: "\(symbol) ", with: symbol)
+        }
+        return label
     }
 
     /// "Today" when `isToday`, else abbreviated weekday "Tue", in the forecast's time zone.

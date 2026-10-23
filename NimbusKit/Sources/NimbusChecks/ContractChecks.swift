@@ -48,7 +48,7 @@ public enum ContractChecks {
         c.expectEqual(saved, [Place.previewCupertino])
 
         c.expectEqual(WeatherError.wrap(WeatherError.decoding), .decoding)
-        c.expectEqual(UnitPreferences.default.usesImperialMeasures, true)
+        c.expectEqual(UnitPreferences.default, UnitPreferences(locale: .current))
 
         // Offscreen rendering works here, so units can rely on Snapshot for visual checks.
         let size = Snapshot.render(SkyBackground(theme: .clearDay), name: "contract-sky")
