@@ -25,6 +25,9 @@ public struct RootView: View {
             await settings.load()
             await locations.load()
         }
+        .onChange(of: showingLocations) { _, isShowing in
+            if isShowing { Task { await locations.loadSummaries() } }
+        }
         .sheet(isPresented: $showingLocations) {
             LocationsScreen(viewModel: locations, settings: settings) { place in
                 selection = place.id

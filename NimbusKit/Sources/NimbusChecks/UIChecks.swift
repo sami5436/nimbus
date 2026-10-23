@@ -114,6 +114,14 @@ public enum UIChecks {
         await broken.load()
         c.expectEqual(broken.state, .failed(.server(statusCode: 503)), "server error surfaces")
 
+        // A cancelled load is not recorded as a failure.
+        let cancelRepo = FakeForecastRepository(refreshResult: .failure(.unknown("cancelled")))
+        let cancelVM = WeatherViewModel(place: cupertino, dependencies: dependencies(repository: cancelRepo))
+        let cancelTask = Task { await cancelVM.load() }
+        cancelTask.cancel()
+        await cancelTask.value
+        c.expectEqual(cancelVM.state, .loading, "cancelled load does not fail")
+
         // Fresh cache skips refresh (injected clock 5 minutes after fetch).
         let freshRepo = FakeForecastRepository(cached: [cupertino.id: .preview])
         let fresh = WeatherViewModel(
@@ -175,9 +183,13 @@ public enum UIChecks {
         c.expect(!dupCurrent, "current location id rejected")
 
         // Move and delete persist.
-        await vm.move(from: IndexSet(integer: 1), to: 0)
+        vm.move(from: IndexSet(integer: 1), to: 0)
+        c.expectEqual(vm.places, [oslo, cupertino], "move applies synchronously")
+        await vm.settlePersistence()
         c.expectEqual(await store.places, [oslo, cupertino], "move persists")
-        await vm.delete(at: IndexSet(integer: 0))
+        vm.delete(at: IndexSet(integer: 0))
+        c.expectEqual(vm.places, [cupertino], "delete applies synchronously")
+        await vm.settlePersistence()
         c.expectEqual(await store.places, [cupertino], "delete persists")
         c.expectEqual(vm.places, [cupertino], "delete updates view model")
 
@@ -222,6 +234,29 @@ public enum UIChecks {
         let brokenVM = LocationsViewModel(dependencies: dependencies(repository: repo, store: brokenStore))
         await brokenVM.load()
         c.expect(brokenVM.hasLoaded && brokenVM.places.isEmpty, "store failure yields empty list")
+
+        // Summaries are cache-only: no network, and no fetch for uncached places.
+        let uncachedRepo = FakeForecastRepository()
+        let uncachedVM = LocationsViewModel(
+            dependencies: dependencies(repository: uncachedRepo, places: [cupertino, oslo]))
+        await uncachedVM.load()
+        await uncachedVM.add(Place(id: "1", name: "X", coordinate: Coordinate(latitude: 0, longitude: 0)))
+        c.expectEqual(await uncachedRepo.refreshCount, 0, "load and add never fetch")
+        c.expect(uncachedVM.summaries.isEmpty, "uncached places have no summary")
+        c.expectEqual(uncachedVM.places.count, 3, "add completes without network")
+
+        // Summary uses the injected clock: cache over a day old, night-time now.
+        var oldCache = Forecast.preview
+        oldCache.fetchedAt = refDate.addingTimeInterval(-3 * 86_400)
+        let lateNow = refDate.addingTimeInterval(34 * 3600)
+        let clockRepo = FakeForecastRepository(cached: [cupertino.id: oldCache])
+        let clockVM = LocationsViewModel(
+            dependencies: dependencies(repository: clockRepo, places: [cupertino], now: lateNow))
+        await clockVM.load()
+        let summary = clockVM.summaries[cupertino.id]
+        c.expectEqual(summary?.highC, oldCache.day(containing: lateNow)?.highC, "summary high follows now")
+        c.expectEqual(summary?.lowC, oldCache.day(containing: lateNow)?.lowC, "summary low follows now")
+        c.expectEqual(summary?.isDaylight, oldCache.isDaylight(at: lateNow), "summary sky follows now")
 
         // Search: under 2 characters never hits geocoding.
         let geocoder = CountingGeocoding()

@@ -79,6 +79,8 @@ public final class WeatherViewModel {
         do {
             state = .loaded(try await repository.refreshForecast(for: place), .live)
         } catch {
+            // A cancelled view (swiped away, pull to refresh dropped) is not a failure to show.
+            if Task.isCancelled { return }
             let error = WeatherError.wrap(error)
             if let cached {
                 state = .loaded(cached, error == .offline ? .offline : .cached)

@@ -68,8 +68,8 @@ public struct LocationsScreen: View {
                 ForEach(viewModel.places) { place in
                     row(place, formatter: formatter, title: place.name)
                 }
-                .onDelete { offsets in Task { await viewModel.delete(at: offsets) } }
-                .onMove { source, destination in Task { await viewModel.move(from: source, to: destination) } }
+                .onDelete { viewModel.delete(at: $0) }
+                .onMove { viewModel.move(from: $0, to: $1) }
             }
         }
         .listStyle(.plain)
@@ -105,10 +105,8 @@ public struct LocationsScreen: View {
         case .results(let results):
             List(results) { place in
                 Button {
-                    Task {
-                        await viewModel.add(place)
-                        onSelect(place)
-                    }
+                    onSelect(place)
+                    Task { await viewModel.add(place) }
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(place.name).font(.headline)

@@ -42,6 +42,7 @@ public final class LocationsViewModel {
     private let dependencies: AppDependencies
     private let debounce: Duration
     private var searchTask: Task<Void, Never>?
+    private var persistTask: Task<Void, Never>?
 
     public init(dependencies: AppDependencies, debounce: Duration = .milliseconds(300)) {
         self.dependencies = dependencies
@@ -87,21 +88,20 @@ public final class LocationsViewModel {
         await loadSummaries()
     }
 
-    /// Fills `summaries` from the cache, fetching only for places that have never been loaded.
+    /// Fills `summaries` from the cache only. Never touches the network: places without a cache
+    /// show a placeholder until their weather page loads, which avoids fetching the same place twice.
+    /// Uses the injected clock so a day-old cache shows today's range and the right sky.
     public func loadSummaries() async {
+        let now = dependencies.now()
         for place in displayPlaces {
-            var forecast = await dependencies.forecasts.cachedForecast(for: place)
-            if forecast == nil {
-                forecast = try? await dependencies.forecasts.refreshForecast(for: place)
-            }
-            guard let forecast else { continue }
-            let today = forecast.daily.first
+            guard let forecast = await dependencies.forecasts.cachedForecast(for: place) else { continue }
+            let today = forecast.day(containing: now)
             summaries[place.id] = PlaceSummary(
                 temperatureC: forecast.current.temperatureC,
                 highC: today?.highC,
                 lowC: today?.lowC,
                 condition: forecast.current.condition,
-                isDaylight: forecast.current.isDaylight
+                isDaylight: forecast.isDaylight(at: now)
             )
         }
     }
@@ -115,20 +115,35 @@ public final class LocationsViewModel {
             return false
         }
         places.append(place)
-        await persist()
+        schedulePersist()
+        await settlePersistence()
         updateQuery("")
         await loadSummaries()
         return true
     }
 
-    public func delete(at offsets: IndexSet) async {
+    /// Mutates the list immediately so rows never snap back; persistence follows in order.
+    public func delete(at offsets: IndexSet) {
         places.remove(atOffsets: offsets)
-        await persist()
+        schedulePersist()
     }
 
-    public func move(from source: IndexSet, to destination: Int) async {
+    public func move(from source: IndexSet, to destination: Int) {
         places.move(fromOffsets: source, toOffset: destination)
-        await persist()
+        schedulePersist()
+    }
+
+    /// Waits for queued saves to finish.
+    public func settlePersistence() async {
+        await persistTask?.value
+    }
+
+    private func schedulePersist() {
+        let previous = persistTask
+        persistTask = Task {
+            await previous?.value
+            await persist()
+        }
     }
 
     private func persist() async {
