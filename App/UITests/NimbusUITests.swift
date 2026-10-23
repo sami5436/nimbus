@@ -98,8 +98,8 @@ final class NimbusUITests: XCTestCase {
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)).tap()
 
         // The sheet closes onto Oslo's page.
+        XCTAssertTrue(app.searchFields.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Oslo"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.searchFields.firstMatch.exists)
 
         // And Oslo is in the saved list.
         app.buttons["Locations"].tap()
