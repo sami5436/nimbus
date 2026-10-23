@@ -22,19 +22,19 @@ public struct HourlyForecastStrip: View {
             CardHeader(title: "Hourly Forecast", symbol: "clock")
             Divider().overlay(Color.white.opacity(0.2))
             if isSnapshot {
-                // ImageRenderer cannot draw ScrollView content: show the hours that fit, clipped.
-                columns.frame(maxWidth: .infinity, alignment: .leading).clipped()
+                // ImageRenderer cannot draw ScrollView content: show only the hours that fit the card.
+                columns(hours.prefix(5)).frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) { columns }
+                ScrollView(.horizontal, showsIndicators: false) { columns(hours[...]) }
             }
         }
         .padding(14)
         .weatherCard()
     }
 
-    private var columns: some View {
+    private func columns(_ shown: ArraySlice<HourlyForecast>) -> some View {
         HStack(spacing: 22) {
-            ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
+            ForEach(Array(shown.enumerated()), id: \.element.id) { index, hour in
                 column(hour, isNow: index == 0)
             }
         }
