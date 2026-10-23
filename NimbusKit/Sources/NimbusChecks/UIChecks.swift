@@ -465,7 +465,12 @@ public enum UIChecks {
         c.expect(loadedRows?.hasBand(in: size.height..<(tallSize.height - 8), minHeight: 40) == true, "loaded renders content below the first screen")
         c.expect(loadedRows?.hasContent(in: (tallSize.height - 8)..<tallSize.height) == false, "loaded content ends inside the canvas")
 
-        // At night the stars reach below the first screen; only a card may satisfy the band check.
+        // Stars alone reach below the first screen at night but must never count as a card.
+        let starsOnly = ContentRows(SkyBackground(theme: .clearNight), size: tallSize)
+        c.expect(starsOnly?.hasContent(in: size.height..<(tallSize.height - 8)) == true, "night sky alone has stars below the first screen")
+        c.expect(starsOnly?.hasBand(in: size.height..<(tallSize.height - 8), minHeight: 40) == false, "night stars alone are not a card band")
+
+        // With content, the night screen still has a card band.
         let nightRows = ContentRows(screen(loaded, settings, refDate.addingTimeInterval(34 * 3600)), size: tallSize)
         c.expect(nightRows?.hasContent(in: size.height..<(tallSize.height - 8)) == true, "night sky stars reach below the first screen")
         c.expect(nightRows?.hasBand(in: size.height..<(tallSize.height - 8), minHeight: 40) == true, "night loaded renders a card below the first screen")
