@@ -26,4 +26,17 @@ if xcrun --find xctest >/dev/null 2>&1; then
 else
   echo "== swift test (skipped: no Xcode toolchain active)"
 fi
+# Opt-in: the hosted App tests need the simulator, so they stay out of the default fast path.
+if [[ "${NIMBUS_APP_TESTS:-0}" == "1" ]]; then
+  DEST='platform=iOS Simulator,name=iPhone 17 Pro'
+  if xcodebuild -version >/dev/null 2>&1 && command -v xcodegen >/dev/null 2>&1 \
+      && xcrun simctl list devices available 2>/dev/null | grep -q "iPhone 17 Pro"; then
+    echo "== app tests"
+    trap 'rm -rf "$ROOT/Nimbus.xcodeproj"' EXIT
+    (cd "$ROOT" && xcodegen generate -q \
+      && xcodebuild test -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST")
+  else
+    echo "== app tests (skipped: needs Xcode, xcodegen and the iPhone 17 Pro simulator)"
+  fi
+fi
 echo "presubmit: OK"

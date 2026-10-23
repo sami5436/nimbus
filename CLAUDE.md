@@ -8,6 +8,7 @@ Apple Weather style iOS app. SwiftUI, Swift 6 strict concurrency, iOS 17+. Data 
   - `swift run --package-path NimbusKit NimbusSelfCheck` (suites: `contract core data ui`, pass names to run a subset)
   - `./scripts/typecheck-app.sh` (type-checks `App/Sources` against the macOS SDK)
   - em dash scan; `swift test` only when Xcode is installed
+  - `NIMBUS_APP_TESTS=1 ./scripts/presubmit.sh` also runs the App tests (`xcodegen` + `xcodebuild test` on the iPhone 17 Pro simulator); skips with a message if unavailable
 - Visual check without Xcode: `NIMBUS_SNAPSHOT_DIR=$PWD/snapshots swift run --package-path NimbusKit NimbusSelfCheck`, then open the PNGs.
 - Xcode project: `xcodegen generate` from `project.yml`. Never hand-edit `Nimbus.xcodeproj`.
 
