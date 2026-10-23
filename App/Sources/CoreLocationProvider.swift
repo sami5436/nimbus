@@ -10,10 +10,6 @@ struct CoreLocationProvider: CurrentLocationProvider {
     var timeout: Duration = .seconds(30)
 
     func currentPlace() async throws -> Place {
-        // Hosted tests launch the real app; never raise a system prompt from them.
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-            throw WeatherError.locationUnavailable
-        }
         let location: CLLocation
         do {
             location = try await authorizedFix()
