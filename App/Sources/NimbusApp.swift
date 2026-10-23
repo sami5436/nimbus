@@ -4,8 +4,9 @@ import NimbusUI
 
 @main
 struct NimbusApp: App {
-    // STUB(feat/app-shell): replace with live wiring (Open-Meteo services, file stores, CoreLocation).
-    private let dependencies = AppDependencies.preview()
+    // The UI demo test passes -NimbusSampleData to run offline with sample data.
+    private let dependencies = ProcessInfo.processInfo.arguments.contains("-NimbusSampleData")
+        ? AppDependencies.preview() : AppDependencies.live()
 
     var body: some Scene {
         WindowGroup {

@@ -27,7 +27,7 @@ let package = Package(
         .executableTarget(name: "NimbusSelfCheck", dependencies: ["NimbusChecks"]),
         // Swift Testing wrapper over the same suites. `swift build` never compiles test targets,
         // so this stays inert until `swift test` is available (full Xcode install).
-        .testTarget(name: "NimbusKitTests", dependencies: ["NimbusChecks"]),
+        .testTarget(name: "NimbusKitTests", dependencies: ["NimbusChecks", "NimbusCore", "NimbusData"]),
     ],
     swiftLanguageModes: [.v6]
 )

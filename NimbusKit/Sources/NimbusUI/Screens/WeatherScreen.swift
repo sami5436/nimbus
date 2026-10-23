@@ -4,6 +4,7 @@ import NimbusCore
 /// One place's weather over a condition-aware sky: header, hourly strip, 10-day list, detail tiles.
 public struct WeatherScreen: View {
     @State private var viewModel: WeatherViewModel
+    @Environment(\.isSnapshot) private var isSnapshot
     private let settings: SettingsModel
     private let now: @Sendable () -> Date
 
@@ -53,36 +54,41 @@ public struct WeatherScreen: View {
     private func loadedContent(_ forecast: Forecast, _ freshness: WeatherViewModel.Freshness) -> some View {
         let formatter = settings.formatter
         let date = now()
-        return ScrollView {
-            VStack(spacing: 16) {
-                if freshness == .offline {
-                    OfflineBanner(text: "Offline. Updated \(formatter.clockTime(forecast.fetchedAt, timeZone: forecast.timeZone))")
-                }
-                CurrentConditionsHeader(
-                    placeName: viewModel.place.name,
-                    current: forecast.current,
-                    today: forecast.day(containing: date),
-                    formatter: formatter
-                )
-                HourlyForecastStrip(
-                    hours: forecast.hours(from: date, count: 24),
-                    timeZone: forecast.timeZone,
-                    now: date,
-                    formatter: formatter
-                )
-                DailyForecastList(
-                    days: forecast.daily,
-                    timeZone: forecast.timeZone,
-                    now: date,
-                    currentTemperatureC: forecast.current.temperatureC,
-                    formatter: formatter
-                )
-                DetailTilesGrid(forecast: forecast, now: date, formatter: formatter)
+        let stack = VStack(spacing: 16) {
+            if freshness == .offline {
+                OfflineBanner(text: "Offline. Updated \(formatter.clockTime(forecast.fetchedAt, timeZone: forecast.timeZone))")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            CurrentConditionsHeader(
+                placeName: viewModel.place.name,
+                current: forecast.current,
+                today: forecast.day(containing: date),
+                formatter: formatter
+            )
+            HourlyForecastStrip(
+                hours: forecast.hours(from: date, count: 24),
+                timeZone: forecast.timeZone,
+                now: date,
+                formatter: formatter
+            )
+            DailyForecastList(
+                days: forecast.daily,
+                timeZone: forecast.timeZone,
+                now: date,
+                currentTemperatureC: forecast.current.temperatureC,
+                formatter: formatter
+            )
+            DetailTilesGrid(forecast: forecast, now: date, formatter: formatter)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+
+        return Group {
+            if isSnapshot {
+                stack.frame(maxHeight: .infinity, alignment: .top)
+            } else {
+                ScrollView { stack }.refreshable { await viewModel.refresh() }
+            }
         }
         .foregroundStyle(.white)
-        .refreshable { await viewModel.refresh() }
     }
 }

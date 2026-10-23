@@ -15,6 +15,8 @@ xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b >/dev/null
 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
 
+xcrun simctl privacy "$UDID" grant location com.sami5436.nimbus 2>/dev/null || true
+
 # Build first so recording starts right before the tour, not before compilation.
 DEST="platform=iOS Simulator,id=$UDID"
 xcodebuild -project Nimbus.xcodeproj -scheme Nimbus -destination "$DEST" build-for-testing -quiet
