@@ -4,13 +4,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-DEVICE_NAME="${DEVICE_NAME:-iPhone 17 Pro}"
 MP4=docs/demo.mp4
 GIF=docs/demo.gif
 mkdir -p docs
 
 xcodegen generate >/dev/null
-UDID=$(xcrun simctl list devices available | grep -F "$DEVICE_NAME (" | head -1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+# A dedicated simulator keeps the recording clean and clear of other test runs.
+DEVICE_NAME="Nimbus Demo"
+UDID=$(xcrun simctl list devices available | grep -F "$DEVICE_NAME (" | head -1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' || true)
+if [ -z "$UDID" ]; then
+  UDID=$(xcrun simctl create "$DEVICE_NAME" "iPhone 17 Pro")
+fi
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b >/dev/null
 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
@@ -39,18 +43,18 @@ trap 'kill -INT $REC 2>/dev/null || true' EXIT
 
 TEST_STATUS=0
 wait "$TEST" || TEST_STATUS=$?
-sleep 1
 kill -INT "$REC"
 wait "$REC" || true
 trap - EXIT
 [ "$TEST_STATUS" -eq 0 ] || exit "$TEST_STATUS"
 
-# Shrink the raw capture to keep the committed MP4 small.
-ffmpeg -y -loglevel error -i "$RAW" -vf "scale=590:-2" -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart "$MP4"
+# Drop the last 2 s (the app has quit by then) and shrink the capture to keep the MP4 small.
+LEN=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$RAW")
+ffmpeg -y -loglevel error -i "$RAW" -t "$(awk -v l="$LEN" 'BEGIN { print l - 2 }')" -vf "scale=590:-2" -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart "$MP4"
 rm -f "$RAW"
 
 # Palette-based GIF, 15 fps, 400 px wide.
 ffmpeg -y -loglevel error -i "$MP4" \
-  -vf "fps=15,scale=400:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" \
+  -vf "fps=15,scale=400:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=5" \
   "$GIF"
 ls -lh "$MP4" "$GIF"
