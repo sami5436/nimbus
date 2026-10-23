@@ -3,30 +3,31 @@ import Foundation
 /// Pure conversions from the canonical model units.
 public enum UnitConversion {
     public static func temperature(celsius: Double, to unit: TemperatureUnit) -> Double {
-        // STUB(feat/core-domain)
-        celsius
+        switch unit {
+        case .celsius: celsius
+        case .fahrenheit: celsius * 9 / 5 + 32
+        }
     }
 
     public static func speed(kmh: Double, to unit: SpeedUnit) -> Double {
-        // STUB(feat/core-domain)
-        kmh
+        switch unit {
+        case .kilometersPerHour: kmh
+        case .milesPerHour: kmh / 1.609344
+        }
     }
 
     /// Kilometers, or miles when `imperial`.
     public static func visibility(meters: Double, imperial: Bool) -> Double {
-        // STUB(feat/core-domain)
-        meters
+        imperial ? meters / 1609.344 : meters / 1000
     }
 
     /// Millimeters, or inches when `imperial`.
     public static func precipitation(mm: Double, imperial: Bool) -> Double {
-        // STUB(feat/core-domain)
-        mm
+        imperial ? mm / 25.4 : mm
     }
 
     /// hPa, or inHg when `imperial`.
     public static func pressure(hPa: Double, imperial: Bool) -> Double {
-        // STUB(feat/core-domain)
-        hPa
+        imperial ? hPa * 0.02952998 : hPa
     }
 }
