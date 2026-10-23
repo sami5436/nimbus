@@ -40,20 +40,21 @@ struct OpenMeteoForecastDTOTests {
         #expect(current.windGustsKmh == 15.1)
         #expect(current.pressureHPa == 1015)
         #expect(current.visibilityMeters == 16_000)
-        #expect(current.condition == WeatherCondition(wmoCode: 3))
+        #expect(current.condition == .overcast)
         #expect(!current.isDaylight)
     }
 
     @Test func mapsHourlyAndDailyEntries() throws {
         let forecast = try mapped()
-        let hour = try #require(forecast.hourly.first)
+        try #require(forecast.hourly.count > 8)
+        let hour = forecast.hourly[0]
         #expect(hour.temperatureC == 14.9)
         #expect(hour.precipitationProbabilityPercent == 16)
-        #expect(forecast.hourly[4].condition == WeatherCondition(wmoCode: 51))
+        #expect(forecast.hourly[4].condition == .drizzle)
         #expect(forecast.hourly[8].isDaylight)
 
         let day = try #require(forecast.daily.first)
-        #expect(day.condition == WeatherCondition(wmoCode: 55))
+        #expect(day.condition == .drizzle)
         #expect(day.highC == 16.3)
         #expect(day.lowC == 13.1)
         #expect(day.precipitationSumMm == 3.5)
