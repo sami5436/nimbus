@@ -430,6 +430,17 @@ public enum UIChecks {
         func hasContent(in range: Range<CGFloat>) -> Bool {
             rows.indices.contains { range.contains(CGFloat($0) / scale) && rows[$0] }
         }
+
+        /// True if `range` holds a run of content rows at least `minHeight` points tall. Stars on a
+        /// night sky light up isolated rows but never a run this tall; a card does.
+        func hasBand(in range: Range<CGFloat>, minHeight: CGFloat) -> Bool {
+            var run = 0
+            for index in rows.indices where range.contains(CGFloat(index) / scale) {
+                run = rows[index] ? run + 1 : 0
+                if CGFloat(run) / scale >= minHeight { return true }
+            }
+            return false
+        }
     }
 
     private static func snapshotChecks(_ c: inout Checker) async {
@@ -451,15 +462,20 @@ public enum UIChecks {
         await loaded.load()
         c.expect(Snapshot.render(screen(loaded, settings, refDate), name: "weather-loaded", size: tallSize) != nil, "snapshot loaded")
         let loadedRows = ContentRows(screen(loaded, settings, refDate), size: tallSize)
-        c.expect(loadedRows?.hasContent(in: size.height..<(tallSize.height - 8)) == true, "loaded renders content below the first screen")
+        c.expect(loadedRows?.hasBand(in: size.height..<(tallSize.height - 8), minHeight: 40) == true, "loaded renders content below the first screen")
         c.expect(loadedRows?.hasContent(in: (tallSize.height - 8)..<tallSize.height) == false, "loaded content ends inside the canvas")
+
+        // At night the stars reach below the first screen; only a card may satisfy the band check.
+        let nightRows = ContentRows(screen(loaded, settings, refDate.addingTimeInterval(34 * 3600)), size: tallSize)
+        c.expect(nightRows?.hasContent(in: size.height..<(tallSize.height - 8)) == true, "night sky stars reach below the first screen")
+        c.expect(nightRows?.hasBand(in: size.height..<(tallSize.height - 8), minHeight: 40) == true, "night loaded renders a card below the first screen")
 
         let offlineRepo = FakeForecastRepository(cached: [cupertino.id: staleForecast()], refreshResult: .failure(.offline))
         let offline = WeatherViewModel(place: cupertino, dependencies: dependencies(repository: offlineRepo))
         await offline.load()
         c.expect(Snapshot.render(screen(offline, settings, refDate), name: "weather-offline", size: tallSize) != nil, "snapshot stale offline")
         let offlineRows = ContentRows(screen(offline, settings, refDate), size: tallSize)
-        c.expect(offlineRows?.hasContent(in: size.height..<(tallSize.height - 8)) == true, "offline renders content below the first screen")
+        c.expect(offlineRows?.hasBand(in: size.height..<(tallSize.height - 8), minHeight: 40) == true, "offline renders content below the first screen")
         c.expect(offlineRows?.hasContent(in: (tallSize.height - 8)..<tallSize.height) == false, "offline last tile row stays inside the canvas")
 
         let failRepo = FakeForecastRepository(refreshResult: .failure(.server(statusCode: 500)))
