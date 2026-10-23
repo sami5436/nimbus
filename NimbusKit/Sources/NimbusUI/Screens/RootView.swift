@@ -9,6 +9,7 @@ public struct RootView: View {
     @State private var settings: SettingsModel
     @State private var selection: String?
     @State private var showingLocations = false
+    @ScaledMetric(relativeTo: .body) private var locationsButtonClearance: CGFloat = 100
 
     public init(dependencies: AppDependencies) {
         self.dependencies = dependencies
@@ -76,7 +77,7 @@ public struct RootView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             // Scroll clear of the floating locations button (button, its padding and the home indicator).
-            .contentMargins(.bottom, 100, for: .scrollContent)
+            .contentMargins(.bottom, locationsButtonClearance, for: .scrollContent)
             .ignoresSafeArea()
             #else
             if let place = locations.displayPlaces.first(where: { $0.id == selectedID.wrappedValue }) {
