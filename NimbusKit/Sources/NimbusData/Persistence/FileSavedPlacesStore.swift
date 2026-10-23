@@ -10,11 +10,24 @@ public actor FileSavedPlacesStore: SavedPlacesStore {
     }
 
     public func loadPlaces() async throws -> [Place] {
-        // STUB(feat/data)
-        []
+        let data: Data
+        do {
+            data = try Data(contentsOf: fileURL)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            return []
+        } catch {
+            throw WeatherError.unknown("Could not read places.json: \(error.localizedDescription)")
+        }
+        do {
+            return try JSONDecoder().decode([Place].self, from: data)
+        } catch {
+            throw WeatherError.decoding
+        }
     }
 
     public func savePlaces(_ places: [Place]) async throws {
-        // STUB(feat/data)
+        try JSONFile.write(places, to: fileURL)
     }
+
+    private var fileURL: URL { directory.appendingPathComponent("places.json") }
 }

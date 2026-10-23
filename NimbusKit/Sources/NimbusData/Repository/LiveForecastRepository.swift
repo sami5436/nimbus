@@ -13,12 +13,17 @@ public struct LiveForecastRepository: ForecastRepository {
     }
 
     public func cachedForecast(for place: Place) async -> Forecast? {
-        // STUB(feat/data)
-        nil
+        await cache.forecast(forPlaceID: place.id)
     }
 
     public func refreshForecast(for place: Place) async throws -> Forecast {
-        // STUB(feat/data)
-        throw WeatherError.unknown("LiveForecastRepository not implemented")
+        let forecast: Forecast
+        do {
+            forecast = try await service.forecast(for: place.coordinate)
+        } catch {
+            throw WeatherError.wrap(error)
+        }
+        await cache.store(forecast, forPlaceID: place.id)
+        return forecast
     }
 }

@@ -15,7 +15,30 @@ public struct URLSessionHTTPClient: HTTPClient {
     }
 
     public func get(_ url: URL) async throws -> (data: Data, statusCode: Int) {
-        // STUB(feat/data): perform the request, map URLError codes to WeatherError.offline.
-        throw WeatherError.unknown("URLSessionHTTPClient not implemented")
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard let http = response as? HTTPURLResponse else {
+                throw WeatherError.unknown("Non-HTTP response")
+            }
+            return (data, http.statusCode)
+        } catch let error as WeatherError {
+            throw error
+        } catch let error as URLError {
+            throw Self.map(error)
+        } catch {
+            throw WeatherError.wrap(error)
+        }
+    }
+
+    /// Connectivity failures become `.offline`; everything else is `.unknown`.
+    static func map(_ error: URLError) -> WeatherError {
+        switch error.code {
+        case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost,
+             .cannotConnectToHost, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff,
+             .secureConnectionFailed:
+            return .offline
+        default:
+            return .unknown(error.localizedDescription)
+        }
     }
 }
