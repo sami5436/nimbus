@@ -7,6 +7,7 @@ public struct HourlyForecastStrip: View {
     private let timeZone: TimeZone
     private let now: Date
     private let formatter: WeatherFormatter
+    @Environment(\.isSnapshot) private var isSnapshot
 
     /// `hours` is already sliced by the caller (`Forecast.hours(from:count:)`).
     public init(hours: [HourlyForecast], timeZone: TimeZone, now: Date, formatter: WeatherFormatter) {
@@ -20,17 +21,24 @@ public struct HourlyForecastStrip: View {
         VStack(alignment: .leading, spacing: 10) {
             CardHeader(title: "Hourly Forecast", symbol: "clock")
             Divider().overlay(Color.white.opacity(0.2))
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 22) {
-                    ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
-                        column(hour, isNow: index == 0)
-                    }
-                }
-                .padding(.vertical, 2)
+            if isSnapshot {
+                // ImageRenderer cannot draw ScrollView content: show the hours that fit, clipped.
+                columns.frame(maxWidth: .infinity, alignment: .leading).clipped()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) { columns }
             }
         }
         .padding(14)
         .weatherCard()
+    }
+
+    private var columns: some View {
+        HStack(spacing: 22) {
+            ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
+                column(hour, isNow: index == 0)
+            }
+        }
+        .padding(.vertical, 2)
     }
 
     private func column(_ hour: HourlyForecast, isNow: Bool) -> some View {
